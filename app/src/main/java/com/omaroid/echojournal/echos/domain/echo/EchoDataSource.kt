@@ -7,4 +7,6 @@ interface EchoDataSource {
     fun observeTopics(): Flow<List<String>>
     fun searchTopics(query: String): Flow<List<String>>
     suspend fun insertEcho(echo: Echo)
+    suspend fun deleteEcho(echoId: Int)
+    suspend fun getEchoById(echoId: Int): Echo?
 }

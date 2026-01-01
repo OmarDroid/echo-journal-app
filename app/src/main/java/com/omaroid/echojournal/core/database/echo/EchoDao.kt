@@ -50,4 +50,19 @@ interface EchoDao {
             )
         }
     }
+
+    @Query("DELETE FROM echoentity WHERE echoId = :echoId")
+    suspend fun deleteEcho(echoId: Int)
+
+    @Query("DELETE FROM EchoTopicCrossRef WHERE echoId = :echoId")
+    suspend fun deleteEchoTopicCrossRefs(echoId: Int)
+
+    @Transaction
+    suspend fun deleteEchoWithTopics(echoId: Int) {
+        deleteEchoTopicCrossRefs(echoId)
+        deleteEcho(echoId)
+    }
+
+    @Query("SELECT * FROM echoentity WHERE echoId = :echoId LIMIT 1")
+    suspend fun getEchoById(echoId: Int): EchoWithTopics?
 }

@@ -24,4 +24,8 @@ sealed interface EchosAction {
     data class OnPlayEchoClick(val echoId: Int): EchosAction
     data object OnAudioPermissionGranted: EchosAction
     data object OnCancelRecording: EchosAction
+    data class OnDeleteEchoClick(val echoId: Int): EchosAction
+    data class OnShareEchoClick(val echoId: Int): EchosAction
+    data object OnConfirmDelete: EchosAction
+    data object OnDismissDeleteDialog: EchosAction
 }

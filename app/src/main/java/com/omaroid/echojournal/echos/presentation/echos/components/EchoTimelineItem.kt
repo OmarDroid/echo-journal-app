@@ -36,6 +36,8 @@ fun EchoTimelineItem(
     onPlayClick: () -> Unit,
     onPauseClick: () -> Unit,
     onTrackSizeAvailable: (TrackSizeInfo) -> Unit,
+    onDeleteClick: () -> Unit,
+    onShareClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -73,6 +75,8 @@ fun EchoTimelineItem(
             onTrackSizeAvailable = onTrackSizeAvailable,
             onPlayClick = onPlayClick,
             onPauseClick = onPauseClick,
+            onDeleteClick = onDeleteClick,
+            onShareClick = onShareClick,
             modifier = Modifier
                 .padding(vertical = 8.dp)
         )
@@ -91,6 +95,8 @@ private fun EchoTimelineItemPreview() {
             onPlayClick = {},
             onPauseClick = {},
             onTrackSizeAvailable = {},
+            onDeleteClick = {},
+            onShareClick = {},
             modifier = Modifier
                 .fillMaxWidth()
         )

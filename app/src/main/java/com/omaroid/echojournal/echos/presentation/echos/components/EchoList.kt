@@ -31,6 +31,8 @@ fun EchoList(
     onPlayClick: (echoId: Int) -> Unit,
     onPauseClick: () -> Unit,
     onTrackSizeAvailable: (TrackSizeInfo) -> Unit,
+    onDeleteClick: (echoId: Int) -> Unit,
+    onShareClick: (echoId: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -69,7 +71,13 @@ fun EchoList(
                         onPlayClick(echo.id)
                     },
                     onPauseClick = onPauseClick,
-                    onTrackSizeAvailable = onTrackSizeAvailable
+                    onTrackSizeAvailable = onTrackSizeAvailable,
+                    onDeleteClick = {
+                        onDeleteClick(echo.id)
+                    },
+                    onShareClick = {
+                        onShareClick(echo.id)
+                    }
                 )
             }
 
@@ -127,7 +135,9 @@ private fun EchoListPreview() {
             sections = sections,
             onPlayClick = {},
             onPauseClick = {},
-            onTrackSizeAvailable = {}
+            onTrackSizeAvailable = {},
+            onDeleteClick = {},
+            onShareClick = {}
         )
 
     }

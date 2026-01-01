@@ -60,4 +60,11 @@
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
     <string name="record_new_echo">Record new echo</string>
+    <string name="edit_echo">Edit Echo</string>
+    <string name="share_echo">Share Echo</string>
+    <string name="delete_echo">Delete Echo</string>
+    <string name="delete_recording">Delete Recording?</string>
+    <string name="something_went_wrong">Something went wrong!</string>
+    <string name="error_couldnt_find_file">Oops, couldn\'t find file.</string>
+    <string name="error_sharing_file">Oops, couldn\'t share file!</string>
 </resources>

@@ -38,4 +38,12 @@ class RoomEchoDataSource(
     override suspend fun insertEcho(echo: Echo) {
         echoDao.insertEchoWithTopics(echo.toEchoWithTopics())
     }
+
+    override suspend fun deleteEcho(echoId: Int) {
+        echoDao.deleteEchoWithTopics(echoId)
+    }
+
+    override suspend fun getEchoById(echoId: Int): Echo? {
+        return echoDao.getEchoById(echoId)?.toEcho()
+    }
 }

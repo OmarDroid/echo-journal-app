@@ -27,7 +27,8 @@ data class EchosState(
     val topics: List<Selectable<String>> = emptyList(),
     val moodChipContent: MoodChipContent = MoodChipContent(),
     val selectedEchoFilterChip: EchoFilterChip? = null,
-    val topicChipTitle: UiText = UiText.StringResource(R.string.all_topics)
+    val topicChipTitle: UiText = UiText.StringResource(R.string.all_topics),
+    val echoToDelete: Int? = null
 ) {
     val echoDaySections = echos
         .toList()

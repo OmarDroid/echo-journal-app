@@ -1,6 +1,8 @@
 package com.omaroid.echojournal.echos.presentation.echos.main_screen
 
 import android.Manifest
+import android.content.*
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -13,16 +15,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omaroid.echojournal.R
 import com.omaroid.echojournal.core.presentation.designsystem.theme.EchoJournalTheme
@@ -36,33 +43,36 @@ import com.omaroid.echojournal.echos.presentation.echos.components.EchoQuickReco
 import com.omaroid.echojournal.echos.presentation.echos.components.EchoRecordingSheet
 import com.omaroid.echojournal.echos.presentation.echos.components.EchosEmptyBackground
 import com.omaroid.echojournal.echos.presentation.echos.components.EchosTopBar
+import com.omaroid.echojournal.echos.presentation.echos.create_echo.CreateEchoAction
 import com.omaroid.echojournal.echos.presentation.echos.models.AudioCaptureMethod
 import com.omaroid.echojournal.echos.presentation.echos.models.RecordingState
 import org.koin.androidx.compose.koinViewModel
+import java.io.File
 
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun EchosRoot(
     onNavigateToCreateEcho: (RecordingDetails) -> Unit,
     onNavigateToSettings: () -> Unit,
-    viewModel: EchosViewModel = koinViewModel()
+    viewModel: EchosViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if(isGranted && state.currentCaptureMethod == AudioCaptureMethod.STANDARD) {
+        if (isGranted && state.currentCaptureMethod == AudioCaptureMethod.STANDARD) {
             viewModel.onAction(EchosAction.OnAudioPermissionGranted)
         }
     }
 
     val context = LocalContext.current
     ObserveAsEvents(viewModel.eventChannel) { event ->
-        when(event) {
+        when (event) {
             is EchosEvent.RequestAudioPermission -> {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
+
             is EchosEvent.RecordingTooShort -> {
                 Toast.makeText(
                     context,
@@ -70,15 +80,61 @@ fun EchosRoot(
                     Toast.LENGTH_LONG
                 ).show()
             }
+
             is EchosEvent.OnDoneRecording -> {
                 onNavigateToCreateEcho(event.details)
+            }
+
+            is EchosEvent.ShareEcho -> {
+                try {
+                    val audioFile = File(event.audioFilePath)
+                    if (!audioFile.exists()) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.error_couldnt_find_file),
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@ObserveAsEvents
+                    }
+
+                    val contentUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider", audioFile
+                    )
+
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "audio/*"
+                        putExtra(Intent.EXTRA_STREAM, contentUri)
+                        putExtra(Intent.EXTRA_SUBJECT, event.title)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+
+                    context.startActivity(
+                        Intent.createChooser(shareIntent, context.getString(R.string.share_echo))
+                    )
+
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        context,
+                        e.message ?: context.getString(R.string.error_sharing_file),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            is EchosEvent.ShowError -> {
+                Toast.makeText(
+                    context,
+                    event.message ?: context.getString(R.string.something_went_wrong),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
 
     val isAppInForeground by isAppInForeground()
     LaunchedEffect(isAppInForeground, state.recordingState) {
-        if(state.recordingState == RecordingState.NORMAL_CAPTURE && !isAppInForeground) {
+        if (state.recordingState == RecordingState.NORMAL_CAPTURE && !isAppInForeground) {
             viewModel.onAction(EchosAction.OnPauseRecordingClick)
         }
     }
@@ -86,7 +142,7 @@ fun EchosRoot(
     EchosScreen(
         state = state,
         onAction = { action ->
-            when(action) {
+            when (action) {
                 is EchosAction.OnSettingsClick -> onNavigateToSettings()
                 else -> Unit
             }
@@ -109,7 +165,7 @@ fun EchosScreen(
                 },
                 isQuickRecording = state.recordingState == RecordingState.QUICK_CAPTURE,
                 onLongPressEnd = { cancelledRecording ->
-                    if(cancelledRecording) {
+                    if (cancelledRecording) {
                         onAction(EchosAction.OnCancelRecording)
                     } else {
                         onAction(EchosAction.OnCompleteRecording)
@@ -120,7 +176,7 @@ fun EchosScreen(
                         context,
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
-                    if(hasPermission) {
+                    if (hasPermission) {
                         onAction(EchosAction.OnRecordButtonLongClick)
                     } else {
                         onAction(EchosAction.OnRequestPermissionQuickRecording)
@@ -186,13 +242,19 @@ fun EchosScreen(
                         },
                         onTrackSizeAvailable = { trackSize ->
                             onAction(EchosAction.OnTrackSizeAvailable(trackSize))
-                        }
+                        },
+                        onDeleteClick = {
+                            onAction(EchosAction.OnDeleteEchoClick(it))
+                        },
+                        onShareClick = {
+                            onAction(EchosAction.OnShareEchoClick(it))
+                        },
                     )
                 }
             }
         }
 
-        if(state.recordingState in listOf(RecordingState.NORMAL_CAPTURE, RecordingState.PAUSED)) {
+        if (state.recordingState in listOf(RecordingState.NORMAL_CAPTURE, RecordingState.PAUSED)) {
             EchoRecordingSheet(
                 formattedRecordDuration = state.formattedRecordDuration,
                 isRecording = state.recordingState == RecordingState.NORMAL_CAPTURE,
@@ -200,6 +262,45 @@ fun EchosScreen(
                 onPauseClick = { onAction(EchosAction.OnPauseRecordingClick) },
                 onResumeClick = { onAction(EchosAction.OnResumeRecordingClick) },
                 onCompleteRecording = { onAction(EchosAction.OnCompleteRecording) },
+            )
+        }
+
+        if (state.echoToDelete != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    onAction(EchosAction.OnDismissDeleteDialog)
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onAction(EchosAction.OnConfirmDelete)
+                        },
+                    ) {
+                        Text(
+                            text = stringResource(R.string.delete_echo),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            onAction(EchosAction.OnDismissDeleteDialog)
+                        },
+                    ) {
+                        Text(text = stringResource(R.string.cancel))
+                    }
+                },
+                title = {
+                    Text(
+                        text = stringResource(R.string.delete_recording)
+                    )
+                },
+                text = {
+                    Text(
+                        text = stringResource(R.string.this_cannot_be_undone)
+                    )
+                }
             )
         }
     }

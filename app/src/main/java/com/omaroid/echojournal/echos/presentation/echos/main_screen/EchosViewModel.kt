@@ -38,6 +38,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -84,7 +86,7 @@ class EchosViewModel(
             initialValue = EchosState()
         )
 
-    private val filteredEchos = echoDataSource
+    private fun getFilteredEchos() = echoDataSource
         .observeEchos()
         .filterByMoodAndTopics()
         .onEach { echos ->
@@ -196,6 +198,88 @@ class EchosViewModel(
             EchosAction.OnCompleteRecording -> stopRecording()
 
             EchosAction.OnResumeRecordingClick -> resumeRecording()
+            is EchosAction.OnDeleteEchoClick -> onDeleteEcho(action.echoId)
+            is EchosAction.OnShareEchoClick -> onShareEcho(action.echoId)
+            EchosAction.OnConfirmDelete -> onConfirmDeleteEcho()
+            EchosAction.OnDismissDeleteDialog -> onDismissDeleteDialog()
+        }
+    }
+
+    private fun onDismissDeleteDialog() {
+        _state.update { it.copy(echoToDelete = null) }
+    }
+
+    private fun onConfirmDeleteEcho() {
+        val echoId = _state.value.echoToDelete
+        if (echoId != null) {
+            viewModelScope.launch {
+                _state.update { 
+                    it.copy(
+                        isLoadingData = true
+                    )
+                }
+                try {
+                    val echoToDelete = withContext(Dispatchers.IO) {
+                        echoDataSource.getEchoById(echoId)
+                    }
+
+                    withContext(Dispatchers.IO) {
+                        echoDataSource.deleteEcho(echoId)
+                    }
+
+                    echoToDelete?.audioFilePath?.let { filePath ->
+                        File(filePath).delete()
+                    }
+
+                } catch (e: Exception) {
+                    _eventChannel.send(EchosEvent.ShowError(e.message))
+                }
+
+                if (playingEchoId.value == echoId) {
+                    audioPlayer.stop()
+                    playingEchoId.update { null }
+                }
+                _state.update {
+                    it.copy(
+                        echoToDelete = null
+                    )
+                }
+                _state.update {
+                    it.copy(
+                        isLoadingData = false
+                    )
+                }
+            }
+        }
+    }
+
+    private fun onShareEcho(echoId: Int) {
+        viewModelScope.launch {
+            try {
+                val echo = withContext(Dispatchers.IO) {
+                    echoDataSource.getEchoById(echoId)
+                }
+                if (echo != null) {
+                    _eventChannel.send(
+                        EchosEvent.ShareEcho(
+                            audioFilePath = echo.audioFilePath,
+                            title = echo.title
+                        )
+                    )
+                } else {
+                    _eventChannel.send(EchosEvent.ShowError("Echo not found"))
+                }
+            } catch (e: Exception) {
+                _eventChannel.send(EchosEvent.ShowError(e.message))
+            }
+        }
+    }
+
+    private fun onDeleteEcho(echoId: Int) {
+        _state.update {
+            it.copy(
+                echoToDelete = echoId
+            )
         }
     }
 
@@ -213,7 +297,7 @@ class EchosViewModel(
 
     private fun observeEchos() {
         combine(
-            filteredEchos,
+            getFilteredEchos(),
             playingEchoId,
             audioPlayer.activeTrack
         ) { echos, playingEchoId, activeTrack ->
